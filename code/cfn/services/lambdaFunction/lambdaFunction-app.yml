@@ -1,0 +1,103 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation template to deploy Lambda function
+Parameters:
+  project:
+    Type: String
+    Default: leadhawk
+    Description:  Project Name
+  env:
+    Type: String
+    Default: dev
+    AllowedValues: [prod, dev, qa, stage]
+    Description:  Environment Name
+  app:
+    Type: String
+    Default: app
+    Description:  Application Name
+  lambdaPackageType:
+    Type: String
+    Default: Zip
+    AllowedValues: [Image, Zip]
+    Description: Type of deployment package
+  lambdaMemorySize:
+    Type: Number
+    Default: 128
+    Description: The amount of memory available to the function at runtime
+  lambdaTimeout:
+    Type: Number
+    Default: 30
+    Description: The amount of time (in seconds) that Lambda allows a function to run before stopping it
+  deployInVPC:
+    Type: String
+    Default: True
+    AllowedValues: [True, False]
+    Description: Set to 'True' if the Lambda function should be deployed in a VPC
+  privateSubnet01:
+    Type: String
+    Description: Private Subnet 1 Id
+  privateSubnet02:
+    Type: String
+    Description: Private Subnet 2 Id
+  s3BucketName:
+    Type: String
+    Default: ""
+    Description: The S3 bucket name where the Lambda code is stored. Leave empty if using an ECR image
+  s3ObjectKey:
+    Type: String
+    Default: ""
+    Description: The S3 key of the deployment package
+  ecrRepositoryUri:
+    Type: String
+    Default: ""
+    Description: The URI of ECR repository
+  ecrImageTag:
+    Type: String
+    Default: ""
+    Description: The tag of the Docker image hosted on ECR
+Conditions:
+  useS3Bucket: !Not [!Equals [!Ref s3BucketName, ""]]
+  useVpcConfig: !Equals [!Ref deployInVPC, True]
+Resources:
+  lambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: !Ref lambdaDescription
+      FunctionName: !Sub "${project}-${env}-${app}-lambdaFunction"
+      PackageType: !Ref lambdaPackageType
+      # Role: !GetAtt lambdaExecutionRole.Arn
+      MemorySize: !Ref lambdaMemorySize
+      Timeout: !Ref lambdaTimeout
+      VpcConfig:
+        !If 
+          - useVpcConfig
+          # - 
+          #   SecurityGroupIds:
+          #     - !Ref lambdaSecurityGroup
+            SubnetIds:
+              - !Ref privateSubnet01
+              - !Ref privateSubnet02
+          - !Ref "AWS::NoValue"
+      ImageConfig:
+        !If
+          - useS3Bucket
+          - !Ref "AWS::NoValue"
+          - 
+            Command:
+              - app.handler
+      Code:
+        !If
+          - useS3Bucket
+          - S3Bucket: !Ref s3BucketName
+            S3Key: !Ref s3ObjectKey
+          - ImageUri: !Sub ${ecrRepositoryUri}:${ecrImageTag}
+Outputs:
+  lambdaFunctionName:
+    Description: Name of lambda function
+    Value: !Ref lambdaFunction
+    Export:
+      Name: !Sub "${project}-${env}-${app}-lambdaFunctionName-${AWS::Region}"
+  lambdaFunctionArn:
+    Description: Arn of lambda function
+    Value: !GetAtt lambdaFunction.Arn
+    Export:
+      Name: !Sub "${project}-${env}-${app}-lambdaFunctionArn-${AWS::Region}"

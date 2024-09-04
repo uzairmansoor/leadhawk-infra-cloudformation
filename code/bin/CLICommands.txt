@@ -1,0 +1,14 @@
+###########################
+        Sync - DEV
+###########################
+
+aws s3 sync . s3://leadhawk-app-dev-us-east-1-627414718330/ --exclude ".git/*" --exclude "LICENSE" --exclude "README.md"
+
+###########################
+        DEV
+###########################
+aws cloudformation create-stack --stack-name leadhawk-dev-app-us-east-1 --template-body file://code/cfn/stacks/dev-main.yml --parameters ParameterKey=project,ParameterValue=leadhawk ParameterKey=env,ParameterValue=dev ParameterKey=app,ParameterValue=app --capabilities CAPABILITY_NAMED_IAM
+
+aws cloudformation update-stack --stack-name leadhawk-dev-app-us-east-1 --template-body file://code/cfn/stacks/dev-main.yml --parameters ParameterKey=project,ParameterValue=leadhawk ParameterKey=env,ParameterValue=dev ParameterKey=app,ParameterValue=app --capabilities CAPABILITY_NAMED_IAM
+
+aws cloudformation delete-stack --stack-name leadhawk-dev-app-us-east-1

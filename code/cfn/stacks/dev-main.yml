@@ -1,0 +1,76 @@
+Description: Driver template to deploy services for leadhawk project
+Parameters:
+  project:
+    Type: String
+    Default: leadhawk
+    Description:  Project Name
+  env:
+    Type: String
+    Default: dev
+    AllowedValues: [prod, dev, qa, stage]
+    Description:  Environment Name
+  app:
+    Type: String
+    Default: app
+    Description:  Application Name
+  s3ArtifactPath:
+    Type: String
+    Default: "https://leadhawk-app-dev-us-east-1-627414718330.s3.amazonaws.com/code/cfn/services"
+    Description: Artifact Bucket Path
+Resources:
+  vpc:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "${s3ArtifactPath}/vpc/vpc-app.yml"
+      Parameters:
+        project: !Ref project
+        env: !Ref env
+        app: !Ref app
+        vpcCidr: 10.10.0.0/16
+        publicIPActive: True
+        vpcDnsEnabled: True
+        vpcDnsSupport: True
+        publicSubnet1Cidr: 10.10.1.0/24
+        publicSubnet2Cidr: 10.10.2.0/24
+        privateSubnet1Cidr: 10.10.3.0/24
+        privateSubnet2Cidr: 10.10.4.0/24
+        # publicSubnet3Cidr: 10.10.36.0/24
+        # publicSubnet4Cidr: 10.10.37.0/24
+  restrictDefaultSgLambdaFunction:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "${s3ArtifactPath}/lambdaFunction/lambdaFunction-app.yml"
+      Parameters:
+        project: !Ref project
+        env: !Ref env
+        app: restrictDefaultSg
+        lambdaPackageType: Zip
+        lambdaMemorySize: 128
+        lambdaTimeout: 900
+        deployInVPC: True
+        privateSubnet01: !Select [2, !Split [",", !GetAtt vpc.Outputs.SubnetIds]]
+        privateSubnet02: !Select [3, !Split [",", !GetAtt vpc.Outputs.SubnetIds]]
+        s3BucketName: !Sub "${project}-${app}-${env}-${AWS::Region}-${AWS::AccountId}"
+        s3ObjectKey: restrictDefaultSg/ee7de53d64cc9d6248fa6aa550f92358f6c907b5efd6f3298aeab1b5e7ea358a.zip
+        ecrRepositoryUri: ""
+        ecrImageTag: ""
+  # securityGroup:
+  #   Type: AWS::CloudFormation::Stack
+  #   DependsOn:
+  #     - vpc
+  #   Properties:
+  #     TemplateURL: !Sub "${s3ArtifactPath}/securityGroups/securityGroups-app.yml"
+  #     Parameters:
+  #       project: !Ref project
+  #       env: !Ref env
+  #       app: !Ref app
+  #       defaultSecurityGroupId: !GetAtt vpc.Outputs.defaultSecurityGroupId
+Outputs:
+  vpcId:
+    Value: !Ref vpc
+    Export:
+      Name: !Sub "${project}-${env}-${app}-vpc-${AWS::Region}"
+  # securityGroup:
+  #   Value: !Ref securityGroup
+  #   Export:
+  #     Name: !Sub "${project}-${env}-${app}-securityGroup-${AWS::Region}"

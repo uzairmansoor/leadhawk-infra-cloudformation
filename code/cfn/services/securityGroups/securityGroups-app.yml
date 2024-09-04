@@ -1,0 +1,34 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Template to create the Security Groups
+Parameters:
+  project:
+    Type: String
+    Default: leadhawk
+    Description:  Project Name
+  env:
+    Type: String
+    Default: dev
+    AllowedValues: [prod, dev, qa, stage]
+    Description:  Environment Name
+  app:
+    Type: String
+    Default: app
+    Description:  Application Name    
+  defaultSecurityGroupId:
+    Type: String
+    Description: Default security group ID of the VPC
+Resources:
+  LeadHawkVpcRestrictDefaultSecurityGroup:
+    Type: Custom::VpcRestrictDefaultSG
+    Properties:
+      # ServiceToken:
+      #   Fn::GetAtt:
+      #     - CustomVpcRestrictDefaultSGCustomResourceProviderHandlerDC833E5E
+      #     - Arn
+      DefaultSecurityGroupId: !Ref defaultSecurityGroupId
+        # Fn::GetAtt:
+        #   - LeadHawkVpc2B8103F5
+        #   - DefaultSecurityGroup
+      Account: !Ref AWS::AccountId
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
