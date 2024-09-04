@@ -1,0 +1,58 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: 'CloudFormation Template to deploy IAM policies and roles'
+Parameters:
+  project:
+    Type: String
+    Default: leadhawk
+    Description: Project Name
+  env:
+    Type: String
+    Default: dev
+    AllowedValues: [prod, dev, qa, stage]
+    Description: Environment Name
+  app:
+    Type: String
+    Default: app
+    Description: Application Name
+Resources:
+  restrictDefaultSgRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${project}-${env}-${app}-lambdaExecRole"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: !Sub "${project}-${env}-${app}-ec2SecurityGroupPolicy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ec2:AuthorizeSecurityGroupIngress
+                  - ec2:AuthorizeSecurityGroupEgress
+                  - ec2:RevokeSecurityGroupIngress
+                  - ec2:RevokeSecurityGroupEgress
+                Resource:
+                  - !Sub arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:security-group/* #${LeadHawkVpc2B8103F5.DefaultSecurityGroup}"
+                  # - Fn::Join:
+                  #     - ""
+                  #     - - "arn:aws:ec2:us-east-1:"
+                  #       - Ref: AWS::AccountId
+                  #       - ":security-group/"
+                  #       - Fn::GetAtt:
+                  #           - LeadHawkVpc2B8103F5
+                  #           - DefaultSecurityGroup
+
+Outputs:
+  restrictDefaultSgRoleArn:
+    Description: The ARN of the Lambda execution role for restricting the default security group
+    Value: !GetAtt restrictDefaultSgRole.Arn
+    Export:
+      Name: !Sub "${project}-${env}-${app}-restrictDefaultSgRoleArn-${AWS::Region}"

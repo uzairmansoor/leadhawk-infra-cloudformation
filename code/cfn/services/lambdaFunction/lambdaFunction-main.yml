@@ -27,16 +27,23 @@ Resources:
         project: !Ref project
         env: !Ref env
         app: restrictDefaultSg
+        lambdaDescription: Lambda function for removing all inbound/outbound rules from the VPC default security group
         lambdaPackageType: Zip
-        deployInVPC: True
+        lambdaExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/LeadhawkSchedulerLambdaExecutionRole
+        lambdaRuntime: nodejs18.x
+        lambdaHandler: __entrypoint__.handler
+        lambdaMemorySize: 128
+        lambdaTimeout: 900
+        lambdaSecurityGroup: ""
+        deployInVPC: False
         privateSubnet01: !Select [2, !Split [",", !GetAtt vpc.Outputs.SubnetIds]]
         privateSubnet02: !Select [3, !Split [",", !GetAtt vpc.Outputs.SubnetIds]]
         s3BucketName: !Sub "${project}-${app}-${env}-${AWS::Region}-${AWS::AccountId}"
-        s3ObjectKey: restrictDefaultSg/ee7de53d64cc9d6248fa6aa550f92358f6c907b5efd6f3298aeab1b5e7ea358a.zip
+        s3ObjectKey: code/lambda/restrictDefaultSg/ee7de53d64cc9d6248fa6aa550f92358f6c907b5efd6f3298aeab1b5e7ea358a.zip
         ecrRepositoryUri: ""
         ecrImageTag: ""
 Outputs:
-  lambdaFunction:
-    Value: !Ref lambdaFunction
+  restrictDefaultSgLambdaFunction:
+    Value: !Ref restrictDefaultSgLambdaFunction
     Export:
-      Name: !Sub "${project}-${env}-${app}-lambdaFunction-${AWS::Region}"
+      Name: !Sub "${project}-${env}-restrictDefaultSg-lambdaFunction-${AWS::Region}"

@@ -4,21 +4,33 @@ Parameters:
   project:
     Type: String
     Default: leadhawk
-    Description:  Project Name
+    Description: Project Name
   env:
     Type: String
     Default: dev
     AllowedValues: [prod, dev, qa, stage]
-    Description:  Environment Name
+    Description: Environment Name
   app:
     Type: String
     Default: app
-    Description:  Application Name
+    Description: Application Name
+  lambdaDescription:
+    Type: String
+    Description: The description of lambda function
   lambdaPackageType:
     Type: String
     Default: Zip
     AllowedValues: [Image, Zip]
     Description: Type of deployment package
+  lambdaExecutionRoleArn:
+    Type: String
+    Description: The ARN of the IAM role for Lambda execution
+  lambdaRuntime:
+    Type: String
+    Description: The version of the runtime for the Lambda function
+  lambdaHandler:
+    Type: String
+    Description: The name of the method within your code that Lambda calls to run your function
   lambdaMemorySize:
     Type: Number
     Default: 128
@@ -27,6 +39,10 @@ Parameters:
     Type: Number
     Default: 30
     Description: The amount of time (in seconds) that Lambda allows a function to run before stopping it
+  lambdaSecurityGroup:
+    Type: String
+    Default: ""
+    Description: A list of VPC security group IDs
   deployInVPC:
     Type: String
     Default: True
@@ -64,15 +80,17 @@ Resources:
       Description: !Ref lambdaDescription
       FunctionName: !Sub "${project}-${env}-${app}-lambdaFunction"
       PackageType: !Ref lambdaPackageType
-      # Role: !GetAtt lambdaExecutionRole.Arn
+      Role: !Ref lambdaExecutionRoleArn
+      Runtime: !Ref lambdaRuntime
+      Handler: !Ref lambdaHandler
       MemorySize: !Ref lambdaMemorySize
       Timeout: !Ref lambdaTimeout
       VpcConfig:
         !If 
           - useVpcConfig
-          # - 
-          #   SecurityGroupIds:
-          #     - !Ref lambdaSecurityGroup
+          - 
+            SecurityGroupIds:
+              - !Ref lambdaSecurityGroup
             SubnetIds:
               - !Ref privateSubnet01
               - !Ref privateSubnet02
