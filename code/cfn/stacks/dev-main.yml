@@ -54,7 +54,7 @@ Resources:
         app: restrictDefaultSg
         lambdaDescription: Lambda function for removing all inbound/outbound rules from the VPC default security group
         lambdaPackageType: Zip
-        lambdaExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/LeadhawkSchedulerLambdaExecutionRole
+        lambdaExecutionRoleArn: !GetAtt iamRoles.Outputs.restrictDefaultSgRoleArn
         lambdaRuntime: nodejs18.x
         lambdaHandler: __entrypoint__.handler
         lambdaMemorySize: 128
@@ -67,27 +67,58 @@ Resources:
         s3ObjectKey: code/lambda/restrictDefaultSg/ee7de53d64cc9d6248fa6aa550f92358f6c907b5efd6f3298aeab1b5e7ea358a.zip
         ecrRepositoryUri: ""
         ecrImageTag: ""
-  # securityGroup:
-  #   Type: AWS::CloudFormation::Stack
-  #   DependsOn:
-  #     - vpc
-  #   Properties:
-  #     TemplateURL: !Sub "${s3ArtifactPath}/securityGroups/securityGroups-app.yml"
-  #     Parameters:
-  #       project: !Ref project
-  #       env: !Ref env
-  #       app: !Ref app
-  #       defaultSecurityGroupId: !GetAtt vpc.Outputs.defaultSecurityGroupId
+  securityGroup:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - vpc
+      - restrictDefaultSgLambdaFunction
+    Properties:
+      TemplateURL: !Sub "${s3ArtifactPath}/securityGroups/securityGroups-app.yml"
+      Parameters:
+        project: !Ref project
+        env: !Ref env
+        app: !Ref app
+        restrictDefaultSgLambdaFunctionArn: !GetAtt restrictDefaultSgLambdaFunction.Outputs.lambdaFunctionArn
+        defaultSecurityGroupId: !GetAtt vpc.Outputs.defaultSecurityGroupId
+        vpcId: !GetAtt vpc.Outputs.vpcId
+  ec2:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "${s3ArtifactPath}/ec2/ec2-app.yml"
+      Parameters:
+        project: !Ref project
+        app: !Ref app
+        env: !Ref env
+        ec2EnableEndpoint: no #yes/no
+        ec2EndpointIdentifier: !Sub "${project}-${env}-${app}-endpointConnect"
+        ec2EndpointPreserveClientIp: true #true/false
+        ec2EndpointPrivateSubnetId: !Select [2, !Split [",", !GetAtt vpc.Outputs.SubnetIds]]
+        ec2EndpointSgIds: !GetAtt securityGroup.Outputs.sgEc2ConnectEndpointId
+        s3ArtifactsBucketName: !Sub "${project}-${app}-${env}-${AWS::Region}-${AWS::AccountId}"
+        imageId: "/aws/service/canonical/ubuntu/server/focal/stable/current/amd64/hvm/ebs-gp2/ami-id"
+        availabilityZone: !Select [0, !GetAZs ""]
+        instanceType: t3.medium
+        keyName: !Sub "${project}-${env}-${app}-${AWS::Region}-KP"
+        ec2IamInstanceProfile: !GetAtt iamRoles.Outputs.ec2InstanceIamProfileName
+        securityGroupId: !GetAtt securityGroup.Outputs.sgEc2Id
+        ebsMappingDevineName: /dev/sda1
+        ebsVolumeSize: 50
+        ebsVolumeType: gp3
+        subnetId: !Select [0, !Split [",", !GetAtt vpc.Outputs.SubnetIds]]
 Outputs:
-  vpcId:
+  vpc:
     Value: !Ref vpc
     Export:
       Name: !Sub "${project}-${env}-${app}-vpc-${AWS::Region}"
+  iamRoles:
+    Value: !Ref iamRoles
+    Export:
+      Name: !Sub "${project}-${env}-${app}-iamRoles-${AWS::Region}"
   restrictDefaultSgLambdaFunction:
     Value: !Ref restrictDefaultSgLambdaFunction
     Export:
       Name: !Sub "${project}-${env}-restrictDefaultSg-lambdaFunction-${AWS::Region}"
-  # securityGroup:
-  #   Value: !Ref securityGroup
-  #   Export:
-  #     Name: !Sub "${project}-${env}-${app}-securityGroup-${AWS::Region}"
+  securityGroup:
+    Value: !Ref securityGroup
+    Export:
+      Name: !Sub "${project}-${env}-${app}-securityGroup-${AWS::Region}"

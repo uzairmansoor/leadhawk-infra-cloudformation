@@ -40,19 +40,67 @@ Resources:
                   - ec2:RevokeSecurityGroupIngress
                   - ec2:RevokeSecurityGroupEgress
                 Resource:
-                  - !Sub arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:security-group/* #${LeadHawkVpc2B8103F5.DefaultSecurityGroup}"
-                  # - Fn::Join:
-                  #     - ""
-                  #     - - "arn:aws:ec2:us-east-1:"
-                  #       - Ref: AWS::AccountId
-                  #       - ":security-group/"
-                  #       - Fn::GetAtt:
-                  #           - LeadHawkVpc2B8103F5
-                  #           - DefaultSecurityGroup
-
+                  - !Sub arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:security-group/*
+  ec2InstanceIamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${project}-${env}-${app}-ec2InstanceIamRole"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+      Policies:
+        - PolicyName: !Sub "${project}-${env}-${app}-ec2CloudFormationPolicy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudformation:DescribeStackResource
+                  - cloudformation:SignalResource
+                Resource:
+                  - !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/*/*
+        - PolicyName: !Sub "${project}-${env}-${app}-ec2InstancePolicy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ec2:DescribeInstances
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:BatchGetImage
+                  - ecr:DescribeImages
+                  - ecr:GetAuthorizationToken
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:ListImages
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - "*"
+  ec2InstancIamProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub "${project}-${env}-${app}-ec2InstancIamProfile"
+      Path: /
+      Roles: 
+        - !Ref ec2InstanceIamRole
 Outputs:
   restrictDefaultSgRoleArn:
     Description: The ARN of the Lambda execution role for restricting the default security group
     Value: !GetAtt restrictDefaultSgRole.Arn
     Export:
       Name: !Sub "${project}-${env}-${app}-restrictDefaultSgRoleArn-${AWS::Region}"
+  ec2InstanceIamRoleArn:
+    Description: The ARN of the EC2 instance role
+    Value: !GetAtt ec2InstanceIamRole.Arn
+    Export:
+      Name: !Sub "${project}-${env}-${app}-ec2InstanceIamRoleArn-${AWS::Region}"
+  ec2InstanceIamProfileName:
+    Description: The name of the EC2 instance profile
+    Value: !Ref ec2InstancIamProfile
+    Export:
+      Name: !Sub "${project}-${env}-${app}-ec2InstanceIamProfileName-${AWS::Region}"
