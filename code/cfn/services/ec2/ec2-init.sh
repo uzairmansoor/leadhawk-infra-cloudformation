@@ -1,8 +1,9 @@
 #!/bin/bash
+sudo su
 set -x
-apt-get update -y
-apt-get install -y git ec2-instance-connect unzip
-apt-get install -y ca-certificates curl
+sudo apt-get update -y
+sudo apt-get install -y git ec2-instance-connect unzip
+sudo apt-get install -y ca-certificates curl
 
 # Install Docker
 install -m 0755 -d /etc/apt/keyrings
@@ -77,65 +78,65 @@ sudo systemctl start docker
 sudo systemctl restart apache2
 sudo systemctl restart docker
 
-sudo sh -c 'echo "
+# Create Docker Compose YAML file
+sudo sh -c "cat > /home/ubuntu/compose.yml <<EOL
 name: compose-leadhawk-ec2
 
 services:
-admin-service:
+  admin-service:
     container_name: leadhawk_admin
-    image: '$ECR_URL'/'$ADMINSERVICE':latest
+    image: $ECR_URL/$ADMINSERVICE:latest
     pull_policy: always
     restart: on-failure:3
     logging:
-    driver: awslogs
-    options:
+      driver: awslogs
+      options:
         awslogs-group: leadhawk_admin
-        awslogs-region: '$Region'
+        awslogs-region: $Region
     ports:
-    - 6005:6005
+      - 6005:6005
 
-dataentry-service:
+  dataentry-service:
     container_name: leadhawk_dataentry
-    image: '$ECR_URL'/'$DATASERVICE':latest
+    image: $ECR_URL/$DATASERVICE:latest
     pull_policy: always
     restart: on-failure:3
     logging:
-    driver: awslogs
-    options:
+      driver: awslogs
+      options:
         awslogs-group: leadhawk_dataentry
-        awslogs-region: '$Region'
+        awslogs-region: $Region
     ports:
-    - 6003:6003
+      - 6003:6003
 
-filter-service:
+  filter-service:
     container_name: leadhawk_filter
-    image: '$ECR_URL'/'$FILTERSERVICE':latest
+    image: $ECR_URL/$FILTERSERVICE:latest
     pull_policy: always
     restart: on-failure:3
     logging:
-    driver: awslogs
-    options:
+      driver: awslogs
+      options:
         awslogs-group: leadhawk_filter
-        awslogs-region: '$Region'
+        awslogs-region: $Region
     ports:
-    - 6004:6004
+      - 6004:6004
 
-user-service:
+  user-service:
     container_name: leadhawk_user
-    image: '$ECR_URL'/'$USERSERVICE':latest
+    image: $ECR_URL/$USERSERVICE:latest
     pull_policy: always
     restart: on-failure:3
     logging:
-    driver: awslogs
-    options:
+      driver: awslogs
+      options:
         awslogs-group: leadhawk_user
-        awslogs-region: '$Region'
+        awslogs-region: $Region
     ports:
-    - 6001:6001
-" > /home/ubuntu/compose.yml'
+      - 6001:6001
+EOL"
 
 # Run services
 ECR_REGION=$(echo $ECR_URL | awk -F '.' '{print $4}')
-sudo sh -c 'echo "
-aws ecr get-login-password --region '$ECR_REGION' | sudo docker login --username AWS --password-stdin '$ECR_URL'
-sudo docker compose up --build -d
+aws ecr get-login-password --region $ECR_REGION | sudo docker login --username AWS --password-stdin $ECR_URL
+sudo docker compose -f /home/ubuntu/compose.yml up --build -d

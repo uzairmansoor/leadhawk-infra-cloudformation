@@ -72,8 +72,14 @@ Parameters:
   s3ArtifactsBucketName:
     Type: String
     Description: Name of bucket to store artifacts
+  ec2EnableElasticIp:
+    Type: String
+    Default: yes
+    AllowedValues: [yes, no]
+    Description: Specify whether to enable EC2 elastic IP or not
 Conditions:
   isEnableEc2EndpointService: !Equals [!Ref ec2EnableEndpoint, yes]
+  isEnableEc2ElasticIp: !Equals [!Ref ec2EnableElasticIp, yes]
 Resources:
   ec2EndpointConnect:
     Type: AWS::EC2::InstanceConnectEndpoint
@@ -109,21 +115,35 @@ Resources:
           Ebs:
             VolumeSize: !Ref ebsVolumeSize
             VolumeType: !Ref ebsVolumeType
-      # UserData:
-      #   Fn::Base64: !Sub |
-      #     #!/bin/bash
-      #     # Install AWS CLI and other dependencies
-      #     sudo su
-      #     sudo apt-get update -y
-      #     sudo apt-get install -y awscli
-      #     # Download user data script from S3
-      #     aws s3 cp s3://${s3ArtifactsBucketName}/ec2/ec2-init.sh /home/ubuntu/ec2-init.sh
-      #     # Set permissions and execute the script
-      #     chmod +x /home/ubuntu/ec2-init.sh
-      #     /home/ubuntu/ec2-init.sh
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          # Install AWS CLI and other dependencies
+          sudo su
+          sudo apt-get update -y
+          sudo apt-get install -y awscli
+          # Download user data script from S3
+          aws s3 cp s3://${s3ArtifactsBucketName}/code/cfn/services/ec2/ec2-init.sh /home/ubuntu/ec2-init.sh
+          # Set permissions and execute the script
+          chmod +x /home/ubuntu/ec2-init.sh
+          /home/ubuntu/ec2-init.sh
       Tags:
         - Key: Name
           Value: !Sub "${project}-${env}-${app}-ec2Instance"
+        - Key: project
+          Value: !Ref project
+        - Key: environment
+          Value: !Ref env
+        - Key: app
+          Value: !Ref app
+  elasticIp:
+    Type: AWS::EC2::EIP
+    Condition: isEnableEc2ElasticIp
+    Properties:
+      InstanceId: !Ref ec2Instance
+      Tags:
+        - Key: Name
+          Value: !Sub "${project}-${env}-${app}-elasticIp"
         - Key: project
           Value: !Ref project
         - Key: environment
@@ -142,3 +162,8 @@ Outputs:
     Value: !Ref ec2Instance
     Export:
       Name: !Sub "${project}-${app}-${env}-ec2Instance"
+  elasticIp:
+    Description: Elastic IP
+    Value: !Ref elasticIp
+    Export:
+      Name: !Sub "${project}-${app}-${env}-elasticIp"

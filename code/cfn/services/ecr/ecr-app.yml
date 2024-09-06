@@ -1,0 +1,55 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Cloudformation template to deploy ECR
+Parameters:
+  project:
+    Type: String
+    Description: Project Name
+  app:
+    Type: String
+    Description:  Application Name
+  env:
+    Type: String
+    Default: dev
+    AllowedValues: [prod, dev, qa, stage]
+    Description:  Environment Name
+  purgeRepo:
+    Type: String
+    Default: True
+    AllowedValues: [True, False]
+    Description:  Delete the repository to force delete its contents
+Resources:
+  ecrRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub "${project}-${env}-${app}-ecr-repository"
+      EmptyOnDelete: !Ref purgeRepo
+      RepositoryPolicyText:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: "AllowPushPull"
+            Effect: Allow
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "ecr:BatchGetImage"
+              - "ecr:GetDownloadUrlForLayer"
+              - "ecr:SetRepositoryPolicy"
+              - "ecr:DeleteRepositoryPolicy"
+              - "ecr:GetRepositoryPolicy"
+      Tags:
+        - Key: Name
+          Value: !Sub "${project}-${env}-${app}-repository"
+        - Key: project
+          Value: !Ref project
+        - Key: environment
+          Value: !Ref env
+Outputs:
+  ecrRepositoryName:
+    Value: !Ref ecrRepository
+    Export:
+        Name: !Sub "${project}-${env}-${app}-ecrRepositoryName-${AWS::Region}"
+  ecrRepositoryUri:
+    Value: !GetAtt ecrRepository.RepositoryUri
+    Export:
+        Name: !Sub "${project}-${env}-${app}-ecrRepositoryUri-${AWS::Region}"

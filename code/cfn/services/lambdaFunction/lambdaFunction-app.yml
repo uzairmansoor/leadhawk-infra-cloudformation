@@ -31,6 +31,10 @@ Parameters:
   lambdaHandler:
     Type: String
     Description: The name of the method within your code that Lambda calls to run your function
+  lambdaEphemeralStorageSize:
+    Type: Number
+    Default: 512
+    Description: The amount of ephemeral storage size available to the function at runtime
   lambdaMemorySize:
     Type: Number
     Default: 128
@@ -71,7 +75,8 @@ Parameters:
     Default: ""
     Description: The tag of the Docker image hosted on ECR
 Conditions:
-  useS3Bucket: !Not [!Equals [!Ref s3BucketName, ""]]
+  useZipPackageType: !Equals [!Ref lambdaPackageType, "Zip"]
+  schedulerLambdaFunc: [!Equals [!Ref app, "scheduler"]]
   useVpcConfig: !Equals [!Ref deployInVPC, True]
 Resources:
   lambdaFunction:
@@ -81,8 +86,16 @@ Resources:
       FunctionName: !Sub "${project}-${env}-${app}-lambdaFunction"
       PackageType: !Ref lambdaPackageType
       Role: !Ref lambdaExecutionRoleArn
-      Runtime: !Ref lambdaRuntime
-      Handler: !Ref lambdaHandler
+      Runtime: !If
+        - useZipPackageType
+        - !Ref lambdaRuntime
+        - !Ref "AWS::NoValue"
+      Handler: !If
+        - useZipPackageType
+        - !Ref lambdaHandler
+        - !Ref "AWS::NoValue"
+      EphemeralStorage:
+        Size: !Ref lambdaEphemeralStorageSize
       MemorySize: !Ref lambdaMemorySize
       Timeout: !Ref lambdaTimeout
       VpcConfig:
@@ -97,17 +110,37 @@ Resources:
           - !Ref "AWS::NoValue"
       ImageConfig:
         !If
-          - useS3Bucket
+          - useZipPackageType
           - !Ref "AWS::NoValue"
           - 
             Command:
-              - app.handler
+              - dist/index.handler
       Code:
         !If
-          - useS3Bucket
+          - useZipPackageType
           - S3Bucket: !Ref s3BucketName
             S3Key: !Ref s3ObjectKey
           - ImageUri: !Sub ${ecrRepositoryUri}:${ecrImageTag}
+      Environment:
+        Variables: !If
+          - schedulerLambdaFunc
+          - 
+            APP_ENV: prod
+            SENTRY_DSN: https://b05f911bcf08d424d9c55992562f0e19@o4507299659644928.ingest.us.sentry.io/4507345529864192
+            SENTRY_ENV: prod
+            MONGODB_URI: mongodb+srv://jackpete1228:LeadHawk@cluster0.bfxtoqi.mongodb.net/hawkio?retryWrites=true&w=majority
+            SMTP_HOST: smtp.office365.com
+            SMTP_PORT: "587"
+            SMTP_USERNAME: noreply@leadhawk.io
+            SMTP_PASSWORD: vnfmvbrhxnjlzkmx
+            EMAIL_FROM: noreply@leadhawk.io
+            LEADHAWK_BASE: https://app.leadhawk.io
+            LEADHAWK_LOGIN: https://app.leadhawk.io/auth
+            LEADHAWK_PRIVACY: https://app.termly.io/policy-viewer/policy.html?policyUUID=852ab584-9ca6-4bbf-9df5-3daeb410d211
+            LEADHAWK_HELP: https://app.leadhawk.io
+            LEADHAWK_UPGRADE_NOW: https://app.leadhawk.io/pricingTable
+            LEADHAWK_REACTIVATE_ACCOUNT: "#"
+          - !Ref "AWS::NoValue"
 Outputs:
   lambdaFunctionName:
     Description: Name of lambda function

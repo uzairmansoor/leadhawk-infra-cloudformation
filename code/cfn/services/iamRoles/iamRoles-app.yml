@@ -14,11 +14,20 @@ Parameters:
     Type: String
     Default: app
     Description: Application Name
+  s3ArtifactsBucketName:
+    Type: String
+    Description: Name of bucket where artifacts are stored
+  ecrRepositoryName:
+    Type: String
+    Description: Name of ECR repository where docker images are stored
+  cwLambdaSchedulerLogGroupName:
+    Type: String
+    Description: CloudWatch log group name for lambda scheduler
 Resources:
-  restrictDefaultSgRole:
+  restrictDefaultSgExecRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub "${project}-${env}-${app}-lambdaExecRole"
+      RoleName: !Sub "${project}-${env}-restrictDefaultSg-lambdaExecRole"
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -27,7 +36,7 @@ Resources:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
       ManagedPolicyArns:
-        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - !Sub "arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
       Policies:
         - PolicyName: !Sub "${project}-${env}-${app}-ec2SecurityGroupPolicy"
           PolicyDocument:
@@ -40,7 +49,7 @@ Resources:
                   - ec2:RevokeSecurityGroupIngress
                   - ec2:RevokeSecurityGroupEgress
                 Resource:
-                  - !Sub arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:security-group/*
+                  - !Sub "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:security-group/*"
   ec2InstanceIamRole:
     Type: AWS::IAM::Role
     Properties:
@@ -63,6 +72,15 @@ Resources:
                   - cloudformation:SignalResource
                 Resource:
                   - !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/*/*
+        - PolicyName: !Sub "${project}-${env}-${app}-ec2S3Policy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource:
+                  - !Sub "arn:aws:s3:::${s3ArtifactsBucketName}/code/cfn/services/ec2/ec2-init.sh"
         - PolicyName: !Sub "${project}-${env}-${app}-ec2InstancePolicy"
           PolicyDocument:
             Version: "2012-10-17"
@@ -88,12 +106,51 @@ Resources:
       Path: /
       Roles: 
         - !Ref ec2InstanceIamRole
+  schedulerLambdaExecRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${project}-${env}-scheduler-lambdaExecRole"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+      Policies:
+        - PolicyName: !Sub "${project}-${env}-${app}-ecrPolicy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:BatchGetImage
+                  - ecr:GetDownloadUrlForLayer
+                Resource:
+                  - !Sub "arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/*" #${ecrRepositoryName}## After updating this, the role in the IAM roles needs to be updated as well.
+              - Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                Resource:
+                  - "*"
+        - PolicyName: !Sub "${project}-${env}-${app}-cwLogsPolicy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:${cwLambdaSchedulerLogGroupName}"
 Outputs:
-  restrictDefaultSgRoleArn:
+  restrictDefaultSgExecRoleArn:
     Description: The ARN of the Lambda execution role for restricting the default security group
-    Value: !GetAtt restrictDefaultSgRole.Arn
+    Value: !GetAtt restrictDefaultSgExecRole.Arn
     Export:
-      Name: !Sub "${project}-${env}-${app}-restrictDefaultSgRoleArn-${AWS::Region}"
+      Name: !Sub "${project}-${env}-restrictDefaultSg-lambdaExecRoleArn-${AWS::Region}"
   ec2InstanceIamRoleArn:
     Description: The ARN of the EC2 instance role
     Value: !GetAtt ec2InstanceIamRole.Arn
@@ -104,3 +161,8 @@ Outputs:
     Value: !Ref ec2InstancIamProfile
     Export:
       Name: !Sub "${project}-${env}-${app}-ec2InstanceIamProfileName-${AWS::Region}"
+  schedulerLambdaExecRoleArn:
+    Description: The ARN of the Lambda execution role for scheduler
+    Value: !GetAtt schedulerLambdaExecRole.Arn
+    Export:
+      Name: !Sub "${project}-${env}-${app}-schedulerLambdaExecRoleArn-${AWS::Region}"
