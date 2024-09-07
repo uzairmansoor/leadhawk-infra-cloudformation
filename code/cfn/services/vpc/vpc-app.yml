@@ -351,6 +351,10 @@ Outputs:
     Value: !Ref vpc
     Export:
       Name: !Sub "${project}-${env}-vpcId-${AWS::Region}"
+  vpcCidrBlock:
+    Value: !GetAtt vpc.CidrBlock
+    Export:
+      Name: !Sub "${project}-${env}-vpcCidrBlock-${AWS::Region}"
   defaultSecurityGroupId:
     Value: !GetAtt vpc.DefaultSecurityGroup
     Export:

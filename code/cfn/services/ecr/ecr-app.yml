@@ -3,15 +3,17 @@ Description: Cloudformation template to deploy ECR
 Parameters:
   project:
     Type: String
+    Default: leadhawk
     Description: Project Name
-  app:
-    Type: String
-    Description:  Application Name
   env:
     Type: String
     Default: dev
     AllowedValues: [prod, dev, qa, stage]
-    Description:  Environment Name
+    Description: Environment Name
+  app:
+    Type: String
+    Default: app
+    Description: Application Name
   purgeRepo:
     Type: String
     Default: True
@@ -21,7 +23,7 @@ Resources:
   ecrRepository:
     Type: AWS::ECR::Repository
     Properties:
-      RepositoryName: !Sub "${project}-${env}-${app}-ecr-repository"
+      RepositoryName: !Sub "${project}-${env}-${app}-ecr-repo"
       EmptyOnDelete: !Ref purgeRepo
       RepositoryPolicyText:
         Version: "2012-10-17"
@@ -39,17 +41,17 @@ Resources:
               - "ecr:GetRepositoryPolicy"
       Tags:
         - Key: Name
-          Value: !Sub "${project}-${env}-${app}-repository"
+          Value: !Sub "${project}-${env}-${app}-repo"
         - Key: project
           Value: !Ref project
         - Key: environment
           Value: !Ref env
 Outputs:
-  ecrRepositoryName:
+  ecrRepoName:
     Value: !Ref ecrRepository
     Export:
-        Name: !Sub "${project}-${env}-${app}-ecrRepositoryName-${AWS::Region}"
-  ecrRepositoryUri:
+      Name: !Sub "${project}-${env}-${app}-ecrRepoName-${AWS::Region}"
+  ecrRepoUri:
     Value: !GetAtt ecrRepository.RepositoryUri
     Export:
-        Name: !Sub "${project}-${env}-${app}-ecrRepositoryUri-${AWS::Region}"
+      Name: !Sub "${project}-${env}-${app}-ecrRepoUri-${AWS::Region}"

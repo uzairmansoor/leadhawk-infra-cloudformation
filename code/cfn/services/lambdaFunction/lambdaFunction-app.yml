@@ -76,7 +76,7 @@ Parameters:
     Description: The tag of the Docker image hosted on ECR
 Conditions:
   useZipPackageType: !Equals [!Ref lambdaPackageType, "Zip"]
-  schedulerLambdaFunc: [!Equals [!Ref app, "scheduler"]]
+  schedulerLambdaFunc: !Equals [!Ref app, "scheduler"]
   useVpcConfig: !Equals [!Ref deployInVPC, True]
 Resources:
   lambdaFunction:

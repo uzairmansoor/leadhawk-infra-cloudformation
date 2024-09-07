@@ -129,10 +129,10 @@ Resources:
   #             - !Sub "arn:aws:s3:::${s3Bucket}"
   #             - !Sub "arn:aws:s3:::${s3Bucket}/*"
 Outputs:
-  s3Bucket:
+  s3BucketName:
     Value: !Ref s3Bucket
     Export:
-      Name: !Sub "${project}-${env}-${app}-s3Bucket-${AWS::Region}"
+      Name: !Sub "${project}-${env}-${app}-s3BucketName-${AWS::Region}"
   s3BucketArn:
     Value: !GetAtt s3Bucket.Arn
     Export:

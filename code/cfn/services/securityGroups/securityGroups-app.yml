@@ -23,6 +23,9 @@ Parameters:
   vpcId:
     Type: String
     Description: ID of the VPC for the security group
+  vpcCidrBlock:
+    Type: String
+    Description: Cidr Block of the VPC for the security group
 Resources:
   sgDefaultVpcRestrict:
     Type: Custom::VpcRestrictDefaultSG
@@ -70,76 +73,76 @@ Resources:
       ToPort: 443
       IpProtocol: tcp
       CidrIp: 0.0.0.0/0
-  sgEc2:
+  sgServicesEc2:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Security group of EC2
-      GroupName: ec2SecurityGroups
+      GroupName: sgServicesEc2
       VpcId: !Ref vpcId
       Tags:
         - Key: Name
-          Value: !Sub "${project}-${env}-sgEc2-${AWS::Region}"
+          Value: !Sub "${project}-${env}-sgServicesEc2-${AWS::Region}"
         - Key: project
           Value: !Ref project
         - Key: environment
           Value: !Ref env
-  sgEc2EgressAllTraffic:
+  sgServicesEc2EgressAllTraffic:
     Type: AWS::EC2::SecurityGroupEgress
     Properties:
       Description: Allow all outbound traffic by default
-      GroupId: !Ref sgEc2
+      GroupId: !Ref sgServicesEc2
       CidrIp: 0.0.0.0/0
       IpProtocol: "-1"
-  sgEc2IngressHttp:
+  sgServicesEc2IngressHttp:
     Type: AWS::EC2::SecurityGroupIngress
     Properties:
       Description: Allow HTTP traffic from Application Load Balancer
-      GroupId: !Ref sgEc2
+      GroupId: !Ref sgServicesEc2
       FromPort: 80
       ToPort: 80
       IpProtocol: tcp
       SourceSecurityGroupId: !Ref sgAlb
-  sgEc2IngressHttps:
+  sgServicesEc2IngressHttps:
     Type: AWS::EC2::SecurityGroupIngress
     Properties:
       Description: Allow HTTPS traffic from Application Load Balancer
-      GroupId: !Ref sgEc2
+      GroupId: !Ref sgServicesEc2
       FromPort: 443
       ToPort: 443
       IpProtocol: tcp
       SourceSecurityGroupId: !Ref sgAlb
-  sgEc2IngressSshSpaceX:
+  sgServicesEc2IngressSshSpaceX:
     Type: AWS::EC2::SecurityGroupIngress
     Properties:
       Description: Allow SSH traffic from Space X IP address
-      GroupId: !Ref sgEc2
+      GroupId: !Ref sgServicesEc2
       CidrIp: 45.64.221.200/32
       FromPort: 22
       ToPort: 22
       IpProtocol: tcp
-  sgEc2IngressSshSpace360:
+  sgServicesEc2IngressSshSpace360:
     Type: AWS::EC2::SecurityGroupIngress
     Properties:
       Description: Allow SSH traffic from Space 360 IP address
-      GroupId: !Ref sgEc2
+      GroupId: !Ref sgServicesEc2
       CidrIp: 14.194.112.178/32
       FromPort: 22
       ToPort: 22
       IpProtocol: tcp
-  sgEc2IngressSshInstanceConnect:
+  sgServicesEc2IngressSshInstanceConnect:
     Type: AWS::EC2::SecurityGroupIngress
     Properties:
       Description: EC2 Instance Connect
-      GroupId: !Ref sgEc2
+      GroupId: !Ref sgServicesEc2
       CidrIp: 18.206.107.24/29
       FromPort: 22
       ToPort: 22
       IpProtocol: tcp
-  sgEc2IngressEC2InstanceConnect:
+  sgServicesEc2IngressEC2InstanceConnect:
     Type: AWS::EC2::SecurityGroupIngress
     Properties:
       Description: Allow SSH traffic from Groff Orlando IP address
-      GroupId: !Ref sgEc2
+      GroupId: !Ref sgServicesEc2
       CidrIp: 99.137.183.60/32
       FromPort: 22
       ToPort: 22
@@ -174,6 +177,71 @@ Resources:
       FromPort: 22
       ToPort: 22
       CidrIp: 0.0.0.0/0
+  sgElasticSearchEc2:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group of Elastic Search EC2
+      GroupName: ec2ElasticSearchSecurityGroups
+      VpcId: !Ref vpcId
+      Tags:
+        - Key: Name
+          Value: !Sub "${project}-${env}-sgElasticSearchEc2-${AWS::Region}"
+        - Key: project
+          Value: !Ref project
+        - Key: environment
+          Value: !Ref env
+  sgElasticSearchEgressAllTraffic:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      Description: Allow all outbound traffic by default
+      GroupId: !Ref sgElasticSearchEc2
+      CidrIp: 0.0.0.0/0
+      IpProtocol: "-1"
+  sgElasticSearchIngressSshSpaceX:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Allow SSH traffic from Space X IP address
+      GroupId: !Ref sgElasticSearchEc2
+      CidrIp: 45.64.221.200/32
+      FromPort: 22
+      ToPort: 22
+      IpProtocol: tcp
+  sgElasticSearchIngressSshSpace360:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Allow SSH traffic from Space 360 IP address
+      GroupId: !Ref sgElasticSearchEc2
+      CidrIp: 14.194.112.178/32
+      FromPort: 22
+      ToPort: 22
+      IpProtocol: tcp
+  sgElasticSearchIngressInstancesMap:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Elastic Services Instances Mapping
+      GroupId: !Ref sgElasticSearchEc2
+      CidrIp:  !Ref vpcCidrBlock
+      FromPort: 9200
+      ToPort: 9300
+      IpProtocol: tcp
+  sgElasticSearchIngressServicesEc2:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Allow traffic from the Services EC2 Security Group
+      GroupId: !Ref sgElasticSearchEc2
+      SourceSecurityGroupId: !GetAtt sgServicesEc2.GroupId
+      FromPort: 9200
+      ToPort: 9300
+      IpProtocol: tcp
+  sgElasticSearchIngressSshEc2:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: EC2 instance connect
+      GroupId: !Ref sgElasticSearchEc2
+      CidrIp:  18.206.107.24/29
+      FromPort: 22
+      ToPort: 22
+      IpProtocol: tcp
 Outputs:
   sgDefaultVpcRestrict:
     Description: A custom resource to restrict the default security group for the specified VPC
@@ -185,13 +253,18 @@ Outputs:
     Value: !Ref sgAlb
     Export:
       Name: !Sub "${project}-${env}-${app}-sgAlbId-${AWS::Region}"
-  sgEc2Id:
+  sgServicesEc2Id:
     Description: EC2 Security Group ID
-    Value: !Ref sgEc2
+    Value: !Ref sgServicesEc2
     Export:
-      Name: !Sub "${project}-${env}-${app}-sgEc2Id-${AWS::Region}"
+      Name: !Sub "${project}-${env}-${app}-sgServicesEc2Id-${AWS::Region}"
   sgEc2ConnectEndpointId:
     Description: EC2 Connect endpoint Security Group ID
     Value: !Ref sgEc2ConnectEndpoint
     Export:
       Name: !Sub "${project}-${env}-${app}-sgEc2ConnectEndpointId-${AWS::Region}"
+  sgElasticSearchEc2Id:
+    Description: Elastic search EC2 Security Group ID
+    Value: !Ref sgElasticSearchEc2
+    Export:
+      Name: !Sub "${project}-${env}-${app}-sgElasticSearchEc2Id-${AWS::Region}"
